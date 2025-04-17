@@ -1,11 +1,8 @@
 #include <conio.h>
 #include <iostream>
-#include <cstring>
 #include <string>
 #include <fstream>
-#include <cstdlib>
-#include <ctime>
-#include <iomanip>
+
 using namespace std;
 
 struct Employee {
@@ -18,6 +15,11 @@ struct Employee {
 
 Employee* head = NULL;
 Employee* tail = NULL;
+
+string FILE_NAME = "JSON_JSON_Employees.txt";
+char SEPARATOR = ':';
+const string NEW_NAME_KEY = "name";
+const string NEW_AGE_KEY = "age";
 
 void AddEmployee(Employee* employee, string nameEmp, int ageEmp) {
     Employee* newEmployee = new Employee;
@@ -136,23 +138,109 @@ void ShowAllEmployee(Employee* emp) {
     }
 }
 
-// Функция добавления нового сотрудника
-void AddEmployee(Employee* employee) {
-    // Создаём нового сотрудника "newEmployee"
-    Employee* newEmployee = new Employee;
+void DeleteAllEmployees(Employee* employee) {
+    Employee* current = head;
+    while (current != NULL) {
+        Employee* next = current->next;
+        delete current;
+        current = next;
+    }
 
-    // Заполняем данные о сотруднике
-    cout << "Добавление нового сотрудника:\n" << endl;
-    cout << "Введите имя нового сотрудника: ";
-    // Используем функцию "getline" для того что бы можно было использовать пробел
-    getline(cin, newEmployee->name);
-    cout << "Введите возраст нового сотрудника: ";
-    // Используем "cin" так как нам нужно только 1 число
-    cin >> newEmployee->age;
+    head = NULL;
+    tail = NULL;
+}
 
-    // Устанавливаем новые указатели
-    newEmployee->next = NULL;   // Указатель на следующего сотрудника указывает на конец списка
-    newEmployee->prev = tail;   // Указывает на предыдущего сотрудника указывает на
+void SaveToFile(Employee* employee) {
+    if (head == nullptr) {
+        cout << "Список сотрудников пуст. Нечего сохранять, добавьте сотрудников" << endl;
+        return;
+    }
+
+    ofstream fout(FILE_NAME);
+    if (!fout) {
+        cout << "Ошибка при открытии файла для записи." << endl;
+        return;
+    }
+
+    Employee* current = head;
+    bool firstEmployee = true;
+
+    fout << "[\n";
+    while (current != NULL) {
+        if (!firstEmployee) {
+            fout << ";" << endl;
+        }
+        firstEmployee = false;
+
+        fout << "\t{" << endl;
+        fout << "\t\t\"Name\": \"" << current->name << "\", " << endl;
+        fout << "\t\t\"Age\": \"" << current->age << "\"" << endl;
+        fout << "\t}" << endl;
+
+        current = current->next;
+    }
+
+    fout << "]" << endl;
+    fout.close();
+    cout << "Данные успешно сохранены в файл " << FILE_NAME << "." << endl;
+}
+
+void LoadFromFile(Employee* employee) {
+    ifstream fin(FILE_NAME);
+    if (!(fin.is_open())) {
+        cout << "Ошибка открытия файла для чтения или не существует." << endl;
+        return;
+    }
+    DeleteAllEmployees(employee);
+
+    string line;
+    Employee* current = NULL;
+    bool inEmployee = false;
+
+    while (getline(fin, line)) {
+        line.erase(0, line.find_first_not_of(" \t\""));
+        size_t endPos = line.find_last_not_of(" \t\",");
+        if (endPos != string::npos) {
+            line = line.substr(0, endPos + 1);
+        }
+        if (line.find("{") != string::npos) {
+            current = new Employee();
+            current->prev = tail;
+            current->next = NULL;
+
+            if (tail!=NULL) {
+                tail->next = current;
+            } else {
+                head = current;
+            }
+            tail =current;
+            inEmployee = true;
+        }
+        else if (line.find("}") != string::npos) {
+           inEmployee = false;
+        }
+        else if (inEmployee && current != NULL) {
+            size_t colonPos = line.find(SEPARATOR);
+            if (colonPos != string::npos) {
+                string key = line.substr(0, colonPos);
+                string value = line.substr(colonPos + 1);
+
+                key.erase(0, key.find_first_not_of(" \t\""));
+                key.erase(key.find_last_not_of(" \t\"")+1);
+                value.erase(0, value.find_first_not_of(" \t\""));
+                value.erase(value.find_last_not_of(" \t\"")+1);
+
+                if (key == "Name") {
+                    current->name = value;
+                }
+                else if (key == "Age") {
+                    current->age = stoi(value);
+                }
+            }
+        }
+    }
+    fin.close();
+    cout << "Данные успешно загружены из файла: " << FILE_NAME << "." << endl;
 }
 
 int main() {
@@ -160,8 +248,6 @@ int main() {
     system("color 2");
 
     Employee Employee;
-
-    srand(time(0));
 
     string nameEmp;
     int ageEmp;
@@ -174,6 +260,8 @@ int main() {
         cout << "2. Удалить сотрудника" << endl;
         cout << "3. Показать последнего сотрудника" << endl;
         cout << "4. Показать всех сотрудников" << endl;
+        cout << "5. Сохранить сотрудников в файл" << endl;
+        cout << "6. Загрузить сотрудников из файла" << endl;
         cout << "0. Выход" << endl;
         cout << "Выберите действие: ";
 
@@ -213,9 +301,19 @@ int main() {
             ShowAllEmployee(&Employee);
             break;
 
+            case 5:
+                system("cls");
+                SaveToFile(&Employee);
+            break;
+
+            case 6:
+                system("cls");
+            LoadFromFile(&Employee);
+            break;
+
             case 0:
                 DeleteAllEmployees();
-                cout << "Программа завершена.\n";
+                cout << "Программа завершена." << endl;
                 break;
                 default: cout << "Неверный ввод. Повторите попытку снова." << endl;
         }
